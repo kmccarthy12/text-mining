@@ -1,7 +1,7 @@
 ---
 title: 'Intro to TM Badge'
 subtitle: "LASER Institute TM Learning Lab 1"
-author: "Dr. Shiyan Jiang"
+author: "Katie McCarthy"
 date: "`r format(Sys.Date(),'%B %e, %Y')`"
 output: html_document
 ---
@@ -26,25 +26,25 @@ Use the institutional library (e.g. [NCSU Library](https://www.lib.ncsu.edu/#art
 
 1.  Provide an APA citation for your selected study.
 
-    -   
+    -   Chen, X., Zou, D., Cheng, G., & Xie, H. (2020). Detecting latent topics and trends in educational technologies over four decades using structural topic modeling: A retrospective of all volumes of Computers & Education. *Computers & Education*, *151*, 103855.
 
 2.  How does the visualization address research questions?
 
-    -   
+    -   Figures 6, 7, and 8 help to demonstrate the different players in the EdTech space and how the topics are related and have changed over time.
 
 Draft a research question for a population you may be interested in studying, or that would be of interest to educational researchers, and that would require the collection of text data and answer the following questions:
 
 1.  What text data would need to be collected?
 
-    -   
+    -   I am interested in examining *constructed responses* (think-alouds, self-explanations) that can be used to explore how reader's build their mental representation of complex scientific texts.
 
 2.  For what reason would text data need to be collected in order to address this question?
 
-    -   
+    -   Although behavioral data like eyetracking can be used to approximate different processes, constructed responses have been shown to reliably reveal different processes and strategies that occur during reading which are, in turn, related to learning outcomes.
 
 3.  Explain the analytical level at which these text data would need to be collected and analyzed.
 
-    -   
+    -   I am interested in examining how words and relations between words, ideas, and sentences interact and how these relations are related to mental model building and learning.
 
 ### Part II: Data Product
 
@@ -52,11 +52,78 @@ Use your case study file to create a new word cloud that does not include words 
 
 I highly recommend creating a new R script in your lab-1 folder to complete this task. When your code is ready to share, use the code chunk below to share the final code for your model and answer the questions that follow.
 
-```{r, my-data-product}
-# YOUR FINAL CODE HERE
+### Old Word Cloud
+```{r, message=F, warning=F}
+library(tidyverse)
+library(tidytext)
+library(wordcloud2)
+library(kableExtra)
+```
 
+```{r, warning=F, message=F}
+###############  
+## DF Cleaning
+###############  
+
+opd_survey <- read_csv("data/opd_survey.csv") # read in data
+
+opd_tidy <- opd_survey %>%
+    select(Role, `Resource...6`, Q21) %>%
+    rename(text = Q21,
+           Resource = "Resource...6") %>%
+    slice(-1, -2) %>%
+    na.omit() %>%
+    filter(Role == "Teacher") %>%
+    unnest_tokens(word, text) #unnest
+
+###############  
+## Remove Stop Words
+###############  
+
+opd_clean <- anti_join(opd_tidy, stop_words) #remove stop words
+
+###############  
+## Descriptives
+###############  
+
+#overall counts
+opd_counts <- opd_clean %>% 
+  count(word, sort = TRUE)
+
+head(opd_counts) %>%
+  kable()
+
+###############  
+## Visualization
+############### 
+
+#wordcloud2(opd_counts)
+```
+# New Word Cloud
+Below is my attempt to create a new word cloud wiht a few terms removed. My code is running and the markdown is knitting. **BUT** the second word cloud will not appear. I did a quick search and this seems to be a known issue with a workaround: https://github.com/Lchiffon/wordcloud2/issues/65, but it seemed a bit outside of what we were trying to do here.
+
+My solution was the just # out the first word cloud so that the second appears
+```{r}
+###############  
+## Removing additional words
+############### 
+#creating a vector of words to remove
+unhelpfulwords <- data.frame("word" = c("copyright", "items"))
+
+#new df with fewer words
+opd_clean.2 <- anti_join(opd_clean, unhelpfulwords) #remove new words
+
+opd_counts.2 <- opd_clean.2 %>% 
+  count(word, sort = TRUE)
+
+head(opd_counts.2) %>%
+  kable()
+
+wordcloud2(opd_counts.2)
 
 ```
+
+
 
 ### Knit & Submit
 

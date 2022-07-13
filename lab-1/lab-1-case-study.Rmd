@@ -284,6 +284,8 @@ name so we can work with it like any other object in R.
 
 ```{r, echo = TRUE}
 opd_survey <- read_csv("data/opd_survey.csv")
+
+opd_survey <- opd_survey %>% rename("Resource" = "Resource...6")
 ```
 
 Notice that `read_csv()` dealt with the issues of duplicate column names
