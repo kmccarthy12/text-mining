@@ -108,7 +108,8 @@ My solution was the just # out the first word cloud so that the second appears
 ## Removing additional words
 ############### 
 #creating a vector of words to remove
-unhelpfulwords <- data.frame("word" = c("copyright", "items"))
+#these were top six words in the previous cloud
+unhelpfulwords <- data.frame("word" = c("resources", "learning"))
 
 #new df with fewer words
 opd_clean.2 <- anti_join(opd_clean, unhelpfulwords) #remove new words
