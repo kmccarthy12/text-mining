@@ -210,7 +210,7 @@ token <- create_token(
 
 ```{r}
 ## check to see if the token is loaded
-get_token()
+#get_token()
 ```
 
 That's it!

@@ -57,7 +57,7 @@ documents and text of interests, Silge & Robinson and a new bottom row
 their flowchart consisting new data structures (i.e., a corpus object
 and document-term matrix) and and the LDA model:  
 
-[![Figure source: Silge, J., & Robinson, D. (2017). Text mining with R: A tidy approach. O\'Reilly Media, Inc.
+[![Figure source: Silge, J., & Robinson, D. (2017). Text mining with R: A tidy approach. O'Reilly Media, Inc.
 Retrieved from:
 https://www.tidytextmining.com/topicmodeling.html](img/tm_flow.png "A flowchart of a text analysis that incorporates topic modeling. The topicmodels package takes a Document-Term Matrix as input and produces a model that can be tided by tidytext, such that it can be manipulated and visualized with dplyr and ggplot2."){width="90%"}](https://www.tidytextmining.com/topicmodeling.html)
 
@@ -240,11 +240,11 @@ walkthrough:
 library(tidyverse)
 library(tidytext)
 library(SnowballC)
-library(topicmodels)
-library(stm)
+library(topicmodels) #LDA algo
+library(stm) # for lda viz
 library(ldatuning)
 library(knitr)
-library(LDAvis)
+library(LDAvis) #also lda viz
 ```
 
 ------------------------------------------------------------------------
@@ -391,7 +391,7 @@ Your output should look something like this:
 ```{r find-quotes, echo=FALSE}
 forum_quotes <- ts_forum_data %>%
   select(post_content) %>% 
-  filter(grepl('time', post_content))
+  filter(grepl("time", post_content))
 
 sample_n(forum_quotes,10)
 ```

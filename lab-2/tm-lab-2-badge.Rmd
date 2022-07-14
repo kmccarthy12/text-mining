@@ -26,25 +26,27 @@ Use the institutional library (e.g. [NCSU Library](https://www.lib.ncsu.edu/#art
 
 1.  Provide an APA citation for your selected study.
 
-    -   
+    -   Boon-Itt, S., & Skunkan, Y. (2020). Public perception of the COVID-19 pandemic on Twitter: sentiment analysis and topic modeling study. *JMIR Public Health and Surveillance*, *6*(4), e21978.
 
 2.  How does the sentiment analysis address research questions?
 
-    -   
+    -   Not an education-specific question, but of larger social interest. This study looks at Twitter chatter about COVID-19 from Dec 2019- Mar 2020 to better understand and respond to large-scale social issues.
+
+    -   In addition to word clouds, the authors use sentiment analysis (Figures 7 and 8) to do a "temperature check" of the world in the early stages of the pandemic. It is interesting (and perhaps, retrospectively unsurprising) that two most prominent sentiments were "fear" and "anticipation".
 
 Draft a research question for a population you may be interested in studying, or that would be of interest to educational researchers, and that would require the collection of text data and answer the following questions:
 
 1.  What text data would need to be collected?
 
-    -   
+    -   We are interested in examining how students navigate across multiple, conflicting texts related to emotion and belief-laden socio-scientific issues (e.g., should there be universal basic income, should we require vaccinations, is climate change man-made). To understand how students' affect (either task or topic related), we could collect think-alouds or retrospective interviews about how they navigated and thought about the texts.
 
 2.  For what reason would text data need to be collected in order to address this question?
 
-    -   
+    -   Though behavioral data can tell us what people choose to look at or how long they look at something, text data affords more direct examination of affect.
 
 3.  Explain the analytical level at which these text data would need to be collected and analyzed.
 
-    -   
+    -   Ideally, I would collect concurrent verbal protocols (think-alouds) separated for different documents (or perhaps specific sentences) to examine where sentiment plays a role in processing and eventual integration. I could examine this the word, idea, sentence, or discourse level. It would be interesting to look at sentiment differences within and across document sets
 
 ### Part II: Data Product
 
@@ -54,12 +56,145 @@ Use your case study file to create small multiples like the following figure:
 
 I highly recommend creating a new R script in your lab-2 folder to complete this task. When your code is ready to share, use the code chunk below to share the final code for your model and answer the questions that follow.
 
-```{r, my-data-product}
-# YOUR FINAL CODE HERE
+```{r, warning = F, message = F, echo = F, fig.align='center'}
+library(tidyverse)
+library(tidytext)
+library(readxl)
 
+################
+## Data Wrangling
+################
+
+ngss_tweets <- read_xlsx("data/ngss_tweets.xlsx")
+ccss_tweets <- read_xlsx("data/csss_tweets.xlsx")
+
+#select and filter relevant columns
+ngss_text <-
+  ngss_tweets %>%
+  filter(lang == "en") %>%
+  select(screen_name, created_at, text) %>%
+  mutate(standards = "ngss") %>%
+  relocate(standards)
+
+#select and filter relevant columns
+ccss_text <-
+  ccss_tweets %>%
+  filter(lang == "en") %>%
+  select(screen_name, created_at, text) %>%
+  mutate(standards = "ccss") %>%
+  relocate(standards)
+
+#bind
+tweets <- bind_rows(ngss_text, ccss_text)
+
+################
+## Tokenizing & Prep
+################
+
+#tokenize at the word level
+tweet_tokens <- 
+  tweets %>%
+  unnest_tokens(output = word, 
+                input = text, 
+                token = "tweets")
+
+#remove stop words
+tidy_tweets <-
+  tweet_tokens %>%
+  anti_join(stop_words, by = "word") %>% #remove stop words
+  filter(!word == "amp") #remove html residue
+
+################
+## Get Sentiment Dictionaries
+################
+
+#read in dictionaries
+afinn <- get_sentiments("afinn")
+bing <- get_sentiments("bing")
+nrc <- get_sentiments("nrc")
+loughran <- get_sentiments("loughran")
+
+#match common words from tweet df and afinn dictionary
+sentiment_afinn <- inner_join(tidy_tweets, afinn, by = "word")
+
+# same (innerjoin) with bing dictionary
+sentiment_bing <- inner_join(tidy_tweets, bing, by = "word")
+
+#same innerjoin with nrc dictionary
+sentiment_nrc <- inner_join(tidy_tweets, nrc, by = "word")
+
+#same for loughran
+sentiment_loughran <- inner_join(tidy_tweets, loughran, by = "word")
+
+################
+## Sentiment Analysis: Bing
+################
+
+summary_bing <- sentiment_bing %>% 
+  group_by(standards) %>% #compare groups
+  count(sentiment, sort = TRUE) %>%
+  mutate(proportion = n / sum(n)) %>%#count frequency
+  mutate(lexicon = "bing") %>% #add variable to identify lexicon/dictionary
+  relocate(lexicon) #moves lexicon to first col position
+
+################
+## Sentiment Analysis: afinn
+################
+
+summary_afinn <- 
+  sentiment_afinn %>% 
+  mutate(sentiment = ifelse(value < 0, "negative", "positive")) %>% #create categorical valence
+  group_by(standards) %>%
+  count(sentiment, sort = TRUE) %>%
+  mutate(proportion = n / sum(n)) %>%
+  mutate(lexicon = "afinn") %>% #add variable to identify lexicon/dictionary
+  relocate(lexicon)
+
+################
+## Sentiment Analysis: nrc
+################
+
+summary_nrc <-
+  sentiment_nrc %>%
+  filter(sentiment == "positive"|sentiment == "negative") %>% #select only pos and sentiments
+  group_by(standards) %>%
+  count(sentiment, sort = TRUE) %>%
+  mutate(proportion = n / sum(n)) %>%
+  mutate(lexicon = "nrc") %>% #add variable to identify lexicon/dictionary
+  relocate(lexicon) #moves lexicon to first col position
+
+################
+## Sentiment Analysis: loughran
+################
+  
+summary_loughran <-
+  sentiment_loughran %>%
+  filter(sentiment == "positive"|sentiment == "negative") %>%
+  group_by(standards) %>%
+  count(sentiment, sort = TRUE) %>%
+  mutate(proportion = n / sum(n)) %>%
+  mutate(lexicon = "loughran") %>%
+  relocate(lexicon)
+  
+################
+## Visualization
+################
+
+#create main file
+
+sentiment_all <- bind_rows(summary_afinn, summary_bing, summary_nrc, summary_loughran)
+
+sentiment_all <- sentiment_all %>%
+  mutate(sentiment = as.factor(sentiment))
+
+ggplot(sentiment_all, aes(x = standards, y = proportion, fill = sentiment)) +
+         geom_col(position = "dodge") +
+  facet_wrap(~lexicon) +
+  xlab("Standards") +
+  ylab("Percentage") +
+  theme_bw() 
 
 ```
-
 ### Knit & Submit
 
 Congratulations, you've completed your Intro to text mining Badge! Complete the following steps to submit your work for review:

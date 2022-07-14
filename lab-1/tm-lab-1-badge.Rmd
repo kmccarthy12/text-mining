@@ -90,8 +90,7 @@ opd_clean <- anti_join(opd_tidy, stop_words) #remove stop words
 opd_counts <- opd_clean %>% 
   count(word, sort = TRUE)
 
-head(opd_counts) %>%
-  kable()
+head(opd_counts) 
 
 ###############  
 ## Visualization
