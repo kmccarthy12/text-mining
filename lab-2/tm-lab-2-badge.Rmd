@@ -1,7 +1,7 @@
 ---
 title: 'Sentiment Analysis Badge'
 subtitle: "LASER Institute TM Learning Lab 2"
-author: "Dr. Shiyan Jiang"
+author: "Katie McCarthy"
 date: "`r format(Sys.Date(),'%B %e, %Y')`"
 output: html_document
 ---
@@ -195,7 +195,7 @@ ggplot(sentiment_all, aes(x = standards, y = proportion, fill = sentiment)) +
   theme_bw() 
 
 ```
-### Knit & Submit
+###Knit & Submit
 
 Congratulations, you've completed your Intro to text mining Badge! Complete the following steps to submit your work for review:
 
