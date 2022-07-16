@@ -1,7 +1,7 @@
 ---
 title: 'Sentiment Analysis Badge'
-subtitle: "LASER Institute TM Learning Lab 2"
-author: "Dr. Shiyan Jiang"
+subtitle: "LASER Institute TM Learning Lab 3"
+author: "Katie McCarthy"
 date: "`r format(Sys.Date(),'%B %e, %Y')`"
 output: html_document
 ---
@@ -26,25 +26,25 @@ Use the institutional library (e.g. [NCSU Library](https://www.lib.ncsu.edu/#art
 
 1.  Provide an APA citation for your selected study.
 
-    -   
+    -   Lemay, D. J., Baek, C., & Doleck, T. (2021). Comparison of learning analytics and educational data mining: A topic modeling approach. Computers and Education: Artificial Intelligence, 2, 100016.
 
 2.  How does topic modeling address research questions?
 
-    -   
+    -   In thinking about George Siemens's keynote, I was interested in  the similarities and differences in LA and EDM. The researchers did a literature search from 2015-2019 for the terms "Educational Data Mining" and "Learning Analytics". They used structural topic modeling to for each set of papers to get a sense of the topics in each field. I question, however, that the top  words in both were "Learning", "Analytics", "Educational", "Data", and "Mining". It seems to me that those words (or perhaps the bi-gram and tri-gram respectively should have been removed.)
 
 Draft a research question for a population you may be interested in studying, or that would be of interest to educational researchers, and that would require the collection of text data and answer the following questions:
 
 1.  What text data would need to be collected?
 
-    -   
+- I would be interested in examining our graduate student presentations and publications to examine what "types" of research is conducted in our interdisciplinary department. 
 
 2.  For what reason would text data need to be collected in order to address this question?
 
-    -   
+    -   Our formal program distinctions tend to be simplistic and overlapping. Papers and presentations would allow us to examine the intersections of topics and methodologies that students are using to address questions across different learning sciences programs.
 
 3.  Explain the analytical level at which these text data would need to be collected and analyzed.
 
-    -   
+    -   Word level (or bigram level) analysis would help to identify relevant themes across the corpus of papers.
 
 ### Part II: Data Product
 
@@ -52,9 +52,104 @@ Use your case study file to try a small number of topics (e.g., 3) or a large nu
 
 I highly recommend creating a new R script in your lab-3 folder to complete this task. When your code is ready to share, use the code chunk below to share the final code for your model and answer the questions that follow.
 
-```{r, my-data-product}
-# YOUR FINAL CODE HERE
+```{r, warning = F, message = F, echo = F}
+library(tidyverse)
+library(tidytext)
+library(SnowballC)
+library(topicmodels) #LDA algo
+library(stm) # for lda viz
+library(ldatuning)
+library(knitr)
+library(LDAvis) #also lda viz
 
+#read data
+ts_forum_data <- read_csv("data/ts_forum_data.csv", 
+                          col_types = cols(course_id = col_character(),
+                                           forum_id = col_character(), 
+                                           discussion_id = col_character(), 
+                                           post_id = col_character()
+                          )
+)
+
+
+#token & tidy!
+forums_tidy <- ts_forum_data %>%
+  unnest_tokens(output = word, input = post_content) %>%
+  anti_join(stop_words, by = "word")
+
+#counts
+forums_tidy %>%
+  count(word, sort = TRUE)
+
+#document term matrix
+forums_dtm <- forums_tidy %>%
+  count(post_id, word) %>%
+  cast_dtm(post_id, word, n)
+
+#stemming
+temp <- textProcessor(ts_forum_data$post_content, 
+                      metadata = ts_forum_data,  
+                      lowercase=TRUE, 
+                      removestopwords=TRUE, 
+                      removenumbers=TRUE,  
+                      removepunctuation=TRUE, 
+                      wordLengths=c(3,Inf),
+                      stem=TRUE,
+                      onlycharacter= FALSE, 
+                      striphtml=TRUE, 
+                      customstopwords=NULL)
+
+#STM-specific inputs
+meta <- temp$meta
+vocab <- temp$vocab
+docs <- temp$documents
+
+#stem
+stemmed_forums <- ts_forum_data %>%
+  unnest_tokens(output = word, input = post_content) %>%
+  anti_join(stop_words, by = "word") %>%
+  mutate(stem = wordStem(word))
+
+# document term matrix
+stemmed_dtm <- ts_forum_data %>%
+  unnest_tokens(output = word, input = post_content) %>%
+  anti_join(stop_words, by = "word") %>%
+  mutate(stem = wordStem(word)) %>%
+  count(post_id, stem) %>%
+  cast_dtm(post_id, stem, n)
+
+#find number of topics
+n_distinct(ts_forum_data$forum_name)
+```
+
+# Small k (3)
+```{r, warning = F, message = F, echo=F}
+
+forums_stm.3 <- stm(documents=docs, 
+                  data=meta,
+                  vocab=vocab, 
+                  prevalence =~ course_id + forum_id,
+                  K=3,
+                  max.em.its=25,
+                  verbose = FALSE)
+
+forums_stm.3
+
+plot.STM(forums_stm.3, n = 5)
+```
+# Large k (30)
+```{r, warning = F, message = F, echo = F}
+forums_stm.30 <- stm(documents=docs, 
+                    data=meta,
+                    vocab=vocab, 
+                    prevalence =~ course_id + forum_id,
+                    K=30,
+                    max.em.its=25,
+                    verbose = FALSE)
+
+forums_stm.30
+
+plot.STM(forums_stm.30, n = 5)
 
 ```
 

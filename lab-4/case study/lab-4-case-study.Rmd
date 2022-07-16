@@ -181,6 +181,8 @@ comments_rec <- comments_rec %>%
   step_tokenize(comment) %>%
   step_tokenfilter(comment, max_tokens = 1e3) %>%
   step_tfidf(comment)
+
+comments_rec
 ```
 
 Let's create 10-fold cross-validation sets, and use these resampled sets
@@ -260,3 +262,43 @@ from these two models:
 
 1.  Does the SVM model work better than the naive Bayes model?
 2.  Why does the SVM model work better (or worse)?
+
+```{r}
+svm_spec <- svm_poly(degree = 1) %>% 
+  set_mode("classification") %>%
+  set_engine("kernlab", scaled = F)
+
+svm_wf <- workflow() %>%
+  add_recipe(comments_rec) %>%
+  add_model(svm_spec)
+
+svm_wf
+```
+
+We fit one time to the training data as a whole. Now, to estimate how
+well that model performs, let's fit the model many times, once to each
+of these resampled folds, and then evaluate on the heldout part of each
+resampled fold.
+
+```{r}
+svm_rs <- fit_resamples(
+  svm_wf,
+  comments_folds,
+  control = control_resamples(save_pred = TRUE)
+)
+```
+
+We can use `collect_metrics()` to get evaluation information.
+
+```{r}
+svm_rs_metrics <- collect_metrics(svm_rs)
+
+svm_rs_metrics
+```
+
+```{r}
+cm.svm <- conf_mat(svm_rs[[5]][[1]], truth = more_info,
+         estimate = .pred_class)
+
+autoplot(cm.svm, type = "heatmap")
+```
