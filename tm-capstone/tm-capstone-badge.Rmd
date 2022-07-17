@@ -1,7 +1,7 @@
 ---
 title: 'TM Capstone Badge'
 subtitle: "LASER Institute TM Independent Practice"
-author: "Dr. Shiyan Jiang"
+author: "Katie McCarthy"
 date: "`r format(Sys.Date(),'%B %e, %Y')`"
 output: html_document
 ---
@@ -16,12 +16,219 @@ The culminating activity for TM Learning Labs is designed to provide you some sp
 
 1.  **Identify a data source.** For your TM Capstone badge, you are required to identify your own text data source related to an area of professional interest. This may be data that you have already collected prior to the LASER Institute, or data that you may be interested in working with for a future study, such as tweets.
 
-2.  **Formulate a question.** I recommend keeping this simple and limiting to no more than one or two questions. Your question(s) should be appropriate to your data set and ideally be answered by applying concepts and skills from our essential readings and case studies. For example, you may be interested in examning researchers' reactions to online conferences by conducting sentiment analysis with tweeter data.
+2.  **Formulate a question.** I recommend keeping this simple and limiting to no more than one or two questions. Your question(s) should be appropriate to your data set and ideally be answered by applying concepts and skills from our essential readings and case studies. For example, you may be interested in examining researchers' reactions to online conferences by conducting sentiment analysis with tweeter data.
 
 3.  **Analyze the data.** Create a new R script in the R project you cloned from GitHub `text-mining` repository to use as you work through data wrangling and analysis. Your R script will likely contain code that doesn't make it into your final data product since you will experiment with different approaches and figure out code that works and code that does not.
 
-4.  **Create a data product.** When you feel you've wrangled and analyzed the data to your satisfaction, create an R Markdown file that includes a polished sociogram and/or data table along with a brief narrative highlighting your research question, data source, and key findings and potential implications. Your R Markdown file should include a polished sociogram, chart, and/or table; a title and narrative ; and all code necessary to read, wrangle, and explore your data.
+4.  **Create a data product.** When you feel you've wrangled and analyzed the data to your satisfaction, create an R Markdown file that includes a polished [sociogram] and/or data table along with a brief narrative highlighting your research question, data source, and key findings and potential implications. Your R Markdown file should include a polished [sociogram], chart, and/or table; a title and narrative ; and all code necessary to read, wrangle, and explore your data.
 
 5.  **Share your findings.** Knit your data product to a desired output format. This may be a simple [HTML](https://bookdown.org/yihui/rmarkdown/html-document.html), [PDF](https://bookdown.org/yihui/rmarkdown/pdf-document.html), or [MS Word](https://bookdown.org/yihui/rmarkdown/word-document.html) file; or something more complex like [HTML5 slides](https://bookdown.org/yihui/rmarkdown/ioslides-presentation.html), a [Tufte-style handout](https://bookdown.org/yihui/rmarkdown/tufte-handouts.html), [dashboard](https://rmarkdown.rstudio.com/flexdashboard/), or [website](https://bookdown.org/yihui/rmarkdown/rmarkdown-site.html). When you're ready to share your analysis, create a new discussion post below to share your analysis. Include in the post your published web link (e.g., via [RPubs](https://rpubs.com/about/getting-started) or [GitHub Pages](https://towardsdatascience.com/how-to-create-a-free-github-pages-website-53743d7524e1)) or attached file (e.g. HTML or PDF) and add a short reflection including one thing you learned and one thing you'd like to explore further.
 
 If you have any questions about this badge, or run into any technical issues, don't hesitate to email your [Learning Lab Lead](https://docs.google.com/spreadsheets/d/147_1um4J4kqOJSNKB7H3_CakS7hxXXyzvMdHYKuvfHQ/edit#gid=0).
+
+# Research Question
+
+My Lab 3 proposed idea for a topic modeling project was to look at publications written by the faculty and student in my department to gain a better understanding of what it means to work in a department of learning sciences. (Our department was formed in 2018 and we are still navigating how we fit into different spaces of disciplinarity and interdisciplinarity.) I intend to do this larger analysis at a later time, but wanted to play with a more constrained dataset. </br>
+
+In this LASER Institute Text Mining Capstone, I gathered all of the journal articles, conference proceedings, and book chapters that I have written since 2018 and used both Latent Dirichlet Allocation (LDA) and Structural Topic Modeling (STM) to explore the different topics that have emerged in my growing body of research.
+
+For years, I have identified as a cognitive psychologist (my degree is is CogPsych), but my research has always had an applied and educational focus. In moving institutions for my postdoc and assistant professor position, I have begun many new interdisciplinary collaborations and "spread my wings" quite a bit. Although I enjoy the projects that I do and the communities that I serve, I sometimes find myself a scholar without a true home. I am using this analysis as an opportunity to reflect upon the common threads and potentially distinct areas of my research while practicing a new skill set. Thus, my research question is **"What common themes have emerged in my research conducted in the past 4 years?"**
+
+## Data Prep
+
+```{r, include = F}
+library(readr)
+library(tidyverse)
+library(tidytext)
+library(tidymodels)
+library(topicmodels)
+library(stm)
+library(LDAvis)
+library(ldatuning)
+library(wordcloud2)
+library(readtext)
+library(SnowballC) #to stem
+library(gridExtra) #for grid.arrange
+```
+
+```{r, warning=F, message=F,}
+articles <- readtext("article_txtfiles/*.txt") #read in all manuscripts converted to txtfiles
+```
+
+```{r, warning=F, message=F,}
+#tidy
+articles_tidy <- articles %>%
+  mutate(text = gsub(x = text, pattern = "[0-9]+|[[:punct:]]|\\(.*\\)", replacement = "")) %>% #removes numbers and punctuation
+  unnest_tokens(output = word, input = text) %>% #tokenization
+  anti_join(stop_words, by = "word") #remove stopwords
+
+#additional list of words that are likely to be uninformative
+#students, research, and russian were terms that popped up in my first run of the LDA that seemed to be not particularly helpful.
+
+termslist <- data.frame(word = c("abstract", "introduction", "method", "methods", "results","discussion", "conclusions", "students", "research", "russian"))
+
+articles_tidy <- articles_tidy %>%
+  anti_join(termslist, by = "word")
+```
+
+# Initial Exploration
+
+### Word Cloud
+
+```{r, warning=F, message=F, echo=F}
+manu_words <- articles_tidy %>%
+  count(word, sort = TRUE) 
+
+wordcloud2(manu_words)
+```
+
+### Most Frequent Words and Stems
+
+```{r, warning=F, message=F,echo=F, fig.align='center'}
+word.plot <- manu_words %>%
+  filter(n > 30) %>% # keep rows with word counts greater than 500
+  mutate(word = reorder(word, n)) %>% #reorder the word variable by n and replace with new variable called word
+  ggplot(aes(n, word)) + # create a plot with n on x axis and word on y axis
+  geom_col(fill = "darkolivegreen4") +
+  theme_bw() +
+  ggtitle("Most Frequent Words 2018-2022 (n > 30)")
+
+#same analysis, but with stemmed
+articles_tidy_stem <- articles_tidy %>%
+  mutate(word = wordStem(word))
+
+manu_stems <- articles_tidy_stem %>%
+  count(word, sort = TRUE) 
+
+stem.plot <- manu_stems %>%
+  filter(n > 30) %>% 
+  mutate(word = reorder(word, n)) %>% #
+  ggplot(aes(n, word)) + 
+  geom_col(fill = "coral1") +
+  theme_bw() +
+  ggtitle("Most Frequent Stems 2018-2022 (n > 30)")
+
+grid.arrange(word.plot, stem.plot)
+```
+
+# Topic Modeling: LDA
+
+```{r, warning=F, message=F,echo=F}
+#cast document term matrix
+articles_dtm <- articles_tidy %>%
+  count(doc_id, word) %>%
+  cast_dtm(doc_id, word, n)
+
+articles_dtm
+```
+
+### Finding k Topics
+
+I examined these plots and saw an inflection around 15. However, an initial examination showed that the top 5 words in the different topics were quite redundant and the analysis was largely uniformative. I reduced to 10 and felt that these topics were more interpretable.
+
+```{r, warning=F, message=F,echo=F}
+# find k
+k_metrics <- FindTopicsNumber(
+  articles_dtm,
+  topics = seq(10, 75, by = 5),
+  metrics = c("Griffiths2004", "CaoJuan2009", "Arun2010"),
+  method = "Gibbs",
+  control = list(),
+  mc.cores = NA,
+  return_models = FALSE,
+  verbose = FALSE,
+  libpath = NULL
+)
+
+FindTopicsNumber_plot(k_metrics)
+```
+
+```{r, warning=F, message=F,echo=F}
+#run LDA
+articles_lda <- LDA(articles_dtm, 
+                  k = 10, 
+                  control = list(seed = 351)
+)
+
+articles_lda
+
+#tidy up LDA
+tidy_lda <- tidy(articles_lda)
+
+tidy_lda
+
+#compute topic membership
+top_terms <- tidy_lda %>%
+  group_by(topic) %>%
+  slice_max(beta, n = 5, with_ties = FALSE) %>%
+  ungroup() %>%
+  arrange(topic, -beta)
+```
+
+Although "genre" emerged in the list of frequent terms, I was a bit surprised to not see "science" or "literature" in these topics as I am often writing about genre and discipline-specific processes. However, the topics allowed to to spend some time thinking about what each topic reflected. <br> *Topic 1* was unsurprising to me as much of work centers on the role of prior knowledge in learning from texts. <br> Topics 2, 7, and 10 are related to learning in technology-based environments, and I was surprised to not see "technology" here. Of interest to me was that Topic 8 had separated itself from 2 and 7 in particular as I usually view those as part of the same ITS-building whole. I suspect that Topic 8 is capturing the more learning sciences and LX/UX aspects of my research as compared to the more experimental pieces in the other topics. <br> I also noted that "mental" appears in Topic 9. I supect this refers to "mental model". This suggests more need to examine bigrams in addition to unigrams.
+
+```{r, warning=F, message=F,echo=F}
+#visualize topics
+top_terms %>%
+  mutate(term = reorder_within(term, beta, topic)) %>%
+  group_by(topic, term) %>%    
+  arrange(desc(beta)) %>%  
+  ungroup() %>%
+  ggplot(aes(beta, term, fill = as.factor(topic))) +
+  geom_col(show.legend = FALSE) +
+  scale_y_reordered() +
+  labs(title = "Top 5 terms in each LDA topic",
+       x = expression(beta), y = NULL) +
+  facet_wrap(~ topic, ncol = 4, scales = "free")
+```
+
+# Topic Modeling: STM
+
+For the STM, I elected to use stems, rather than words - just to explore. I added a custom stop word list based on the ones I used in the first analysis. I again used 10 topics.
+
+```{r, warning=F, message=F,}
+#start from beginning, retokenize via STM approach
+temp <- textProcessor(articles$text,
+                      metadata = articles,
+                      lowercase=TRUE, 
+                      removestopwords=TRUE, 
+                      removenumbers=TRUE,  
+                      removepunctuation=TRUE, 
+                      wordLengths=c(3,Inf),
+                      stem=TRUE,
+                      onlycharacter= FALSE, 
+                      striphtml=TRUE, 
+                      customstopwords=c("abstract", "introduction", "method", "methods", "results","discussion", "conclusions", "students", "research", "russian"))
+```
+
+```{r, warning=F, message=F,echo=F}
+#stm requirements for tidying
+meta <- temp$meta
+vocab <- temp$vocab
+docs <- temp$documents
+```
+
+```{r, warning=F, message=F,echo=F}
+#run STM
+articles_stm <- stm(documents=docs, 
+                    data=meta,
+                    vocab=vocab,
+                    K=10,
+                    max.em.its=25,
+                    verbose = FALSE)
+articles_stm
+```
+
+The topics are a little bit harder to explain in this grouping, but I think this is due to the stemming, not the model. (I should know not to change more than one variable at a time...) But it is interesting to see "tech", "educ", and "strategi" here, which are ideas I use often in my work.
+
+```{r, warning=F, message=F,}
+
+#Visualize STM
+plot.STM(articles_stm, n = 5)
+
+toLDAvis(mod = articles_stm, docs = docs)
+```
+
+# Conclusions and Future Directions
+
+This analysis allowed me to see that I have many overlapping, but distinct lines of research. Interestingly, technology was not as pervasive as I had thought it might be. I take this to mean that technology is "baked into" much of what I do and that my work remains more focused on processes and mental model building. That is -- these topics still feel distinctly cognitive and psychology. I am looking forward to cleaning the data a bit better and exploring them more intentionally (e.g., bigrams) and am very interested to do this on a larger data set.
